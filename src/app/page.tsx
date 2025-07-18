@@ -39,8 +39,13 @@ export default function Home() {
     fetchISPList();
   }, []);
 
-  const fetchNetworkData = useCallback(async () => {
+  const fetchNetworkData = useCallback(async (maintainScroll = false) => {
     if (!selectedISP) return;
+    
+    let scrollPosition = 0;
+    if (maintainScroll && typeof window !== 'undefined') {
+      scrollPosition = window.scrollY;
+    }
     
     setLoading(true);
     setError('');
@@ -58,11 +63,19 @@ export default function Home() {
       
       setNetworkData(formattedData);
       setLastUpdated(new Date());
+      
     } catch (err) {
       setError('無法取得網路數據');
       setNetworkData([]);
     } finally {
       setLoading(false);
+      
+      // 在更新完成後恢復滾動位置
+      if (maintainScroll && typeof window !== 'undefined') {
+        requestAnimationFrame(() => {
+          window.scrollTo({ top: scrollPosition, behavior: 'instant' });
+        });
+      }
     }
   }, [selectedISP, selectedRange]);
 
@@ -79,7 +92,7 @@ export default function Home() {
     if (!selectedISP || !autoRefresh) return;
 
     const interval = setInterval(() => {
-      fetchNetworkData();
+      fetchNetworkData(true); // 自動更新時保持滾動位置
     }, 30000); // 30秒更新一次
 
     return () => clearInterval(interval);
@@ -124,8 +137,10 @@ export default function Home() {
       points = Math.ceil(rangeMinutes / 60);
     }
     
+    // 確保時間點等距分佈
+    const startTime = now - ((points - 1) * unitMs);
     return Array.from({ length: points }, (_, index) => {
-      return new Date(now - ((points - 1 - index) * unitMs));
+      return new Date(startTime + (index * unitMs));
     });
   };
 
@@ -233,7 +248,11 @@ export default function Home() {
               </label>
               <div className="flex flex-col sm:flex-row gap-2">
                 <button
-                  onClick={() => setAutoRefresh(!autoRefresh)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setAutoRefresh(!autoRefresh);
+                  }}
                   className={`px-4 py-3 rounded-xl font-medium transition-all duration-200 text-sm ${
                     autoRefresh
                       ? 'bg-green-500 text-white hover:bg-green-600'
@@ -244,7 +263,11 @@ export default function Home() {
                 </button>
                 {selectedISP && (
                   <button
-                    onClick={fetchNetworkData}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      fetchNetworkData(true); // 手動更新也保持滾動位置
+                    }}
                     disabled={loading}
                     className="px-4 py-3 bg-blue-500 text-white rounded-xl hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-sm"
                   >
@@ -408,14 +431,26 @@ export default function Home() {
                 <div className="overflow-x-auto">
                   <ResponsiveContainer width="100%" height={350}>
                   <ScatterChart data={prepareScatterData(networkData, 'cloudflare')}>
-                    <CartesianGrid strokeDasharray="3 3" />
+                    <CartesianGrid strokeDasharray="2 2" stroke="#e0e0e0" strokeOpacity={0.5} />
                     <XAxis 
                       dataKey="x" 
                       type="number"
-                      scale="time"
-                      domain={['dataMin', 'dataMax']}
+                      scale="linear"
+                      reversed={true}
+                      domain={(() => {
+                        const allTimePoints = getAllTimePoints(selectedRange);
+                        const startTime = allTimePoints[0]?.getTime();
+                        const endTime = allTimePoints[allTimePoints.length - 1]?.getTime();
+                        return [startTime, endTime];
+                      })()}
                       tick={{ fontSize: 10 }}
-                      interval="preserveStartEnd"
+                      ticks={(() => {
+                        const allTimePoints = getAllTimePoints(selectedRange);
+                        const step = Math.max(1, Math.floor(allTimePoints.length / 8)); // 增加密度
+                        return allTimePoints
+                          .filter((_, index) => index % step === 0 || index === allTimePoints.length - 1)
+                          .map(point => point.getTime());
+                      })()}
                       tickFormatter={(value) => {
                         const date = new Date(value);
                         if (selectedRange <= 60) {
@@ -434,18 +469,24 @@ export default function Home() {
                       width={50}
                     />
                     <Tooltip 
-                      formatter={(value, name) => {
-                        if (name === 'y') return [`${value}ms`, '延遲時間'];
-                        return [value, name];
-                      }}
-                      labelFormatter={(label, payload) => {
-                        if (payload && payload.length > 0) {
+                      content={({ active, payload, label }) => {
+                        if (active && payload && payload.length > 0) {
                           const data = payload[0].payload;
-                          const timeLabel = data.timeLabel || new Date(label).toLocaleTimeString('zh-TW');
+                          const timeLabel = data.timeLabel;
                           const loss = data.loss;
-                          return `時間: ${timeLabel}, 丟包率: ${loss === -1 ? '無數據' : loss + '%'}`;
+                          const pingValue = data.y;
+                          
+                          return (
+                            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg p-3 shadow-lg">
+                              <div className="text-sm">
+                                <div className="font-medium text-gray-900 dark:text-gray-100">時間: {timeLabel}</div>
+                                <div className="text-gray-700 dark:text-gray-300">延遲: {pingValue === null ? '無數據' : `${pingValue}ms`}</div>
+                                <div className="text-gray-700 dark:text-gray-300">丟包率: {loss === -1 ? '無數據' : `${loss}%`}</div>
+                              </div>
+                            </div>
+                          );
                         }
-                        return `時間: ${new Date(label).toLocaleTimeString('zh-TW')}`;
+                        return null;
                       }}
                     />
                     <Scatter dataKey="y" fill="#8884d8">
@@ -496,14 +537,26 @@ export default function Home() {
                 <div className="overflow-x-auto">
                   <ResponsiveContainer width="100%" height={350}>
                   <ScatterChart data={prepareScatterData(networkData, 'origin')}>
-                    <CartesianGrid strokeDasharray="3 3" />
+                    <CartesianGrid strokeDasharray="2 2" stroke="#e0e0e0" strokeOpacity={0.5} />
                     <XAxis 
                       dataKey="x" 
                       type="number"
-                      scale="time"
-                      domain={['dataMin', 'dataMax']}
+                      scale="linear"
+                      reversed={true}
+                      domain={(() => {
+                        const allTimePoints = getAllTimePoints(selectedRange);
+                        const startTime = allTimePoints[0]?.getTime();
+                        const endTime = allTimePoints[allTimePoints.length - 1]?.getTime();
+                        return [startTime, endTime];
+                      })()}
                       tick={{ fontSize: 10 }}
-                      interval="preserveStartEnd"
+                      ticks={(() => {
+                        const allTimePoints = getAllTimePoints(selectedRange);
+                        const step = Math.max(1, Math.floor(allTimePoints.length / 8)); // 增加密度
+                        return allTimePoints
+                          .filter((_, index) => index % step === 0 || index === allTimePoints.length - 1)
+                          .map(point => point.getTime());
+                      })()}
                       tickFormatter={(value) => {
                         const date = new Date(value);
                         if (selectedRange <= 60) {
@@ -522,18 +575,24 @@ export default function Home() {
                       width={50}
                     />
                     <Tooltip 
-                      formatter={(value, name) => {
-                        if (name === 'y') return [`${value}ms`, '延遲時間'];
-                        return [value, name];
-                      }}
-                      labelFormatter={(label, payload) => {
-                        if (payload && payload.length > 0) {
+                      content={({ active, payload, label }) => {
+                        if (active && payload && payload.length > 0) {
                           const data = payload[0].payload;
-                          const timeLabel = data.timeLabel || new Date(label).toLocaleTimeString('zh-TW');
+                          const timeLabel = data.timeLabel;
                           const loss = data.loss;
-                          return `時間: ${timeLabel}, 丟包率: ${loss === -1 ? '無數據' : loss + '%'}`;
+                          const pingValue = data.y;
+                          
+                          return (
+                            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg p-3 shadow-lg">
+                              <div className="text-sm">
+                                <div className="font-medium text-gray-900 dark:text-gray-100">時間: {timeLabel}</div>
+                                <div className="text-gray-700 dark:text-gray-300">延遲: {pingValue === null ? '無數據' : `${pingValue}ms`}</div>
+                                <div className="text-gray-700 dark:text-gray-300">丟包率: {loss === -1 ? '無數據' : `${loss}%`}</div>
+                              </div>
+                            </div>
+                          );
                         }
-                        return `時間: ${new Date(label).toLocaleTimeString('zh-TW')}`;
+                        return null;
                       }}
                     />
                     <Scatter dataKey="y" fill="#8884d8">
