@@ -1,0 +1,25 @@
+{
+  "env": {},
+  "permissions": {
+    "allow": [
+      "Bash(*)",
+      "Bash(npm:*)",
+      "Bash(curl:*)",
+      "Bash(sql:*)",
+      "Bash(mysql:*)",
+      "Bash(pkill:*)",
+      "Bash(timeout:*)",
+      "Bash(sleep:*)",
+      "Bash(grep:*)",
+      "Bash(node:*)",
+      "Bash(cp:*)",
+      "Bash(true)",
+      "Bash(lsof:*)",
+      "Bash(sed:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(npx:*)"
+    ],
+    "deny": [],
+    "additionalDirectories":["../../../"]
+  }
+}
