@@ -191,7 +191,7 @@ export default function Home() {
                 disabled={loading || ispList.length === 0}
                 className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:border-blue-400"
               >
-                <option value="">🌐 請選擇 ISP 進行監控</option>
+                <option value="">請選擇 ISP 進行監控</option>
                 {ispList.map((isp) => (
                   <option key={isp.value} value={isp.value}>
                     {isp.label}
@@ -212,7 +212,7 @@ export default function Home() {
               >
                 {TIME_RANGES.map((range) => (
                   <option key={range.value} value={range.value}>
-                    ⏱️ {range.label}
+                    {range.label}
                   </option>
                 ))}
               </select>
@@ -271,7 +271,7 @@ export default function Home() {
                 {/* Cloudflare 統計 */}
                 <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 p-6 rounded-2xl border border-blue-200 dark:border-blue-700">
                   <h4 className="text-lg font-bold text-blue-800 dark:text-blue-300 mb-4 flex items-center gap-2">
-                    🌍 Cloudflare 統計
+                  {selectedISP} 到 Cloudflare 統計
                   </h4>
                   {(() => {
                     const stats = getStats(networkData, 'cloudflare');
@@ -303,7 +303,7 @@ export default function Home() {
                 {/* 原點統計 */}
                 <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 p-6 rounded-2xl border border-green-200 dark:border-green-700">
                   <h4 className="text-lg font-bold text-green-800 dark:text-green-300 mb-4 flex items-center gap-2">
-                    ⚙️ 原點伺服器統計
+                  {selectedISP} 到 ExpTech 統計
                   </h4>
                   {(() => {
                     const stats = getStats(networkData, 'origin');
