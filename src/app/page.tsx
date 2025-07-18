@@ -32,6 +32,8 @@ export default function Home() {
   const [networkData, setNetworkData] = useState<NetworkData[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
+  const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   useEffect(() => {
     fetchISPList();
@@ -55,6 +57,7 @@ export default function Home() {
       }));
       
       setNetworkData(formattedData);
+      setLastUpdated(new Date());
     } catch (err) {
       setError('無法取得網路數據');
       setNetworkData([]);
@@ -70,6 +73,17 @@ export default function Home() {
       setNetworkData([]);
     }
   }, [selectedISP, selectedRange, fetchNetworkData]);
+
+  // 自動更新功能
+  useEffect(() => {
+    if (!selectedISP || !autoRefresh) return;
+
+    const interval = setInterval(() => {
+      fetchNetworkData();
+    }, 30000); // 30秒更新一次
+
+    return () => clearInterval(interval);
+  }, [selectedISP, autoRefresh, fetchNetworkData]);
 
   const fetchISPList = async () => {
     try {
@@ -165,22 +179,16 @@ export default function Home() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       <div className="container mx-auto px-4 py-8">
         <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full mb-4">
-            <span className="text-3xl">🔍</span>
-          </div>
           <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-3">
             DPIP 網路監控
           </h1>
           <p className="text-xl text-gray-600 dark:text-gray-300 mb-2">
             即時網路延遲與丟包率監控
           </p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            右邊為現在時間 • 經由散點圖分析網路品質
-          </p>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-8 mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-4 sm:p-6 lg:p-8 mb-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 選擇 ISP
@@ -217,13 +225,48 @@ export default function Home() {
                 ))}
               </select>
             </div>
+            
+            {/* 自動更新控制 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                自動更新
+              </label>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  onClick={() => setAutoRefresh(!autoRefresh)}
+                  className={`px-4 py-3 rounded-xl font-medium transition-all duration-200 text-sm ${
+                    autoRefresh
+                      ? 'bg-green-500 text-white hover:bg-green-600'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-300 dark:hover:bg-gray-500'
+                  }`}
+                >
+                  {autoRefresh ? '✅ 開啟' : '❌ 關閉'}
+                </button>
+                {selectedISP && (
+                  <button
+                    onClick={fetchNetworkData}
+                    disabled={loading}
+                    className="px-4 py-3 bg-blue-500 text-white rounded-xl hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-sm"
+                  >
+                    🔄 手動更新
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
           
           {selectedISP && (
             <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-              <p className="text-sm text-blue-700 dark:text-blue-300">
-                正在監控 <strong>{selectedISP}</strong> 的網路狀態，時間範圍：<strong>{TIME_RANGES.find(r => r.value === selectedRange)?.label}</strong>
-              </p>
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+                <p className="text-sm text-blue-700 dark:text-blue-300">
+                  正在監控 <strong>{selectedISP}</strong> 的網路狀態，時間範圍：<strong>{TIME_RANGES.find(r => r.value === selectedRange)?.label}</strong>
+                </p>
+                {lastUpdated && (
+                  <p className="text-xs text-blue-600 dark:text-blue-400">
+                    最後更新：{lastUpdated.toLocaleTimeString('zh-TW')}
+                  </p>
+                )}
+              </div>
             </div>
           )}
 
@@ -267,16 +310,16 @@ export default function Home() {
           {!loading && selectedISP && networkData.length > 0 && (
             <div className="space-y-10">
               {/* 統計摘要 */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
                 {/* Cloudflare 統計 */}
-                <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 p-6 rounded-2xl border border-blue-200 dark:border-blue-700">
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 p-4 sm:p-6 rounded-2xl border border-blue-200 dark:border-blue-700">
                   <h4 className="text-lg font-bold text-blue-800 dark:text-blue-300 mb-4 flex items-center gap-2">
                   {selectedISP} 到 Cloudflare 統計
                   </h4>
                   {(() => {
                     const stats = getStats(networkData, 'cloudflare');
                     return stats ? (
-                      <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
                         <div>
                           <p className="text-blue-600 dark:text-blue-400 font-medium">平均延遲</p>
                           <p className="text-2xl font-bold text-blue-800 dark:text-blue-300">{stats.avgPing}ms</p>
@@ -301,14 +344,14 @@ export default function Home() {
                 </div>
 
                 {/* 原點統計 */}
-                <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 p-6 rounded-2xl border border-green-200 dark:border-green-700">
+                <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 p-4 sm:p-6 rounded-2xl border border-green-200 dark:border-green-700">
                   <h4 className="text-lg font-bold text-green-800 dark:text-green-300 mb-4 flex items-center gap-2">
                   {selectedISP} 到 ExpTech 統計
                   </h4>
                   {(() => {
                     const stats = getStats(networkData, 'origin');
                     return stats ? (
-                      <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
                         <div>
                           <p className="text-green-600 dark:text-green-400 font-medium">平均延遲</p>
                           <p className="text-2xl font-bold text-green-800 dark:text-green-300">{stats.avgPing}ms</p>
@@ -334,7 +377,7 @@ export default function Home() {
               </div>
 
               {/* Cloudflare 圖表 */}
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 p-6 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-600">
+              <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 p-4 sm:p-6 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-600">
                 <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-6 flex items-center gap-2">
                   {selectedISP} 到 Cloudflare 延遲
                 </h3>
@@ -362,7 +405,8 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
-                <ResponsiveContainer width="100%" height={350}>
+                <div className="overflow-x-auto">
+                  <ResponsiveContainer width="100%" height={350}>
                   <ScatterChart data={prepareScatterData(networkData, 'cloudflare')}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis 
@@ -370,22 +414,24 @@ export default function Home() {
                       type="number"
                       scale="time"
                       domain={['dataMin', 'dataMax']}
-                      tick={{ fontSize: 12 }}
+                      tick={{ fontSize: 10 }}
+                      interval="preserveStartEnd"
                       tickFormatter={(value) => {
                         const date = new Date(value);
                         if (selectedRange <= 60) {
-                          return date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                          return date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
                         } else if (selectedRange <= 1440) {
                           return date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
                         } else {
-                          return date.toLocaleDateString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit' });
+                          return date.toLocaleDateString('zh-TW', { day: 'numeric', hour: '2-digit' });
                         }
                       }}
                       label=""
                     />
                     <YAxis 
-                      tick={{ fontSize: 12 }}
+                      tick={{ fontSize: 10 }}
                       label={{ value: '延遲 (ms)', angle: -90, position: 'insideLeft' }}
+                      width={50}
                     />
                     <Tooltip 
                       formatter={(value, name) => {
@@ -414,16 +460,17 @@ export default function Home() {
                       ))}
                     </Scatter>
                   </ScatterChart>
-                </ResponsiveContainer>
+                  </ResponsiveContainer>
+                </div>
               </div>
 
               {/* 原點伺服器圖表 */}
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 p-6 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-600">
+              <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 p-4 sm:p-6 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-600">
                 <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-6 flex items-center gap-2">
                   {selectedISP} 到 ExpTech 延遲
                 </h3>
-                <div className="mb-6 p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-600">
-                <div className="flex flex-wrap gap-4 text-sm">
+                <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-600">
+                  <div className="flex flex-wrap gap-2 sm:gap-4 text-xs sm:text-sm">
                     <div className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-full bg-green-500"></div>
                       <span className="text-gray-600 dark:text-gray-300">0% 丟包率</span>
@@ -446,7 +493,8 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
-                <ResponsiveContainer width="100%" height={350}>
+                <div className="overflow-x-auto">
+                  <ResponsiveContainer width="100%" height={350}>
                   <ScatterChart data={prepareScatterData(networkData, 'origin')}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis 
@@ -454,22 +502,24 @@ export default function Home() {
                       type="number"
                       scale="time"
                       domain={['dataMin', 'dataMax']}
-                      tick={{ fontSize: 12 }}
+                      tick={{ fontSize: 10 }}
+                      interval="preserveStartEnd"
                       tickFormatter={(value) => {
                         const date = new Date(value);
                         if (selectedRange <= 60) {
-                          return date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                          return date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
                         } else if (selectedRange <= 1440) {
                           return date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
                         } else {
-                          return date.toLocaleDateString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit' });
+                          return date.toLocaleDateString('zh-TW', { day: 'numeric', hour: '2-digit' });
                         }
                       }}
                       label=""
                     />
                     <YAxis 
-                      tick={{ fontSize: 12 }}
+                      tick={{ fontSize: 10 }}
                       label={{ value: '延遲 (ms)', angle: -90, position: 'insideLeft' }}
+                      width={50}
                     />
                     <Tooltip 
                       formatter={(value, name) => {
@@ -498,15 +548,12 @@ export default function Home() {
                       ))}
                     </Scatter>
                   </ScatterChart>
-                </ResponsiveContainer>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </div>
           )}
         </div>
-
-        <footer className="text-center text-gray-600 dark:text-gray-400">
-          <p>DPIP 網路監控系統 - 即時監控網路品質</p>
-        </footer>
       </div>
     </div>
   );
