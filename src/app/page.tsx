@@ -34,6 +34,7 @@ export default function Home() {
   const [error, setError] = useState<string>('');
   const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [serverNow, setServerNow] = useState<number>(Date.now());
 
   useEffect(() => {
     fetchISPList();
@@ -54,15 +55,16 @@ export default function Home() {
       const encodedISP = encodeURIComponent(selectedISP);
       const response = await fetch(`https://lb.exptech.dev/api/v1/dpip/status/${encodedISP}/${selectedRange}`);
       if (!response.ok) throw new Error('Failed to fetch network data');
-      const data = await response.json();
+      const responseData = await response.json();
       
-      const formattedData = data.map((item: NetworkData, index: number) => ({
+      const formattedData = responseData.data.map((item: NetworkData, index: number) => ({
         ...item,
         time: index + 1,
       }));
       
       setNetworkData(formattedData);
-      setLastUpdated(new Date());
+      setLastUpdated(new Date(responseData.now));
+      setServerNow(responseData.now);
       
     } catch (err) {
       setError('無法取得網路數據');
@@ -121,8 +123,8 @@ export default function Home() {
     return '#8B5CF6'; // Purple for 99% loss
   };
 
-  const getAllTimePoints = (rangeMinutes: number) => {
-    const now = Date.now();
+  const getAllTimePoints = (rangeMinutes: number, now?: number) => {
+    const currentTime = now || Date.now();
     let unitMs: number;
     let points: number;
     
@@ -138,14 +140,14 @@ export default function Home() {
     }
     
     // 確保時間點等距分佈
-    const startTime = now - ((points - 1) * unitMs);
+    const startTime = currentTime - ((points - 1) * unitMs);
     return Array.from({ length: points }, (_, index) => {
       return new Date(startTime + (index * unitMs));
     });
   };
 
   const prepareScatterData = (data: NetworkData[], type: 'cloudflare' | 'origin') => {
-    const allTimePoints = getAllTimePoints(selectedRange);
+    const allTimePoints = getAllTimePoints(selectedRange, serverNow);
     
     return allTimePoints.map((timePoint, index) => {
       const dataItem = data[index];
@@ -438,14 +440,14 @@ export default function Home() {
                       scale="linear"
                       reversed={true}
                       domain={(() => {
-                        const allTimePoints = getAllTimePoints(selectedRange);
+                        const allTimePoints = getAllTimePoints(selectedRange, serverNow);
                         const startTime = allTimePoints[0]?.getTime();
                         const endTime = allTimePoints[allTimePoints.length - 1]?.getTime();
                         return [startTime, endTime];
                       })()}
                       tick={{ fontSize: 10 }}
                       ticks={(() => {
-                        const allTimePoints = getAllTimePoints(selectedRange);
+                        const allTimePoints = getAllTimePoints(selectedRange, serverNow);
                         const step = Math.max(1, Math.floor(allTimePoints.length / 8)); // 增加密度
                         return allTimePoints
                           .filter((_, index) => index % step === 0 || index === allTimePoints.length - 1)
@@ -544,14 +546,14 @@ export default function Home() {
                       scale="linear"
                       reversed={true}
                       domain={(() => {
-                        const allTimePoints = getAllTimePoints(selectedRange);
+                        const allTimePoints = getAllTimePoints(selectedRange, serverNow);
                         const startTime = allTimePoints[0]?.getTime();
                         const endTime = allTimePoints[allTimePoints.length - 1]?.getTime();
                         return [startTime, endTime];
                       })()}
                       tick={{ fontSize: 10 }}
                       ticks={(() => {
-                        const allTimePoints = getAllTimePoints(selectedRange);
+                        const allTimePoints = getAllTimePoints(selectedRange, serverNow);
                         const step = Math.max(1, Math.floor(allTimePoints.length / 8)); // 增加密度
                         return allTimePoints
                           .filter((_, index) => index % step === 0 || index === allTimePoints.length - 1)
