@@ -26,8 +26,8 @@ const TIME_RANGES = [
 ];
 
 export default function Home() {
-  const [selectedISP, setSelectedISP] = useState<string>('');
-  const [selectedRange, setSelectedRange] = useState<number>(60);
+  const [selectedISP, setSelectedISP] = useState<string>('Chunghwa Telecom Co. Ltd.');
+  const [selectedRange, setSelectedRange] = useState<number>(1440);
   const [ispList, setISPList] = useState<ISP[]>([]);
   const [networkData, setNetworkData] = useState<NetworkData[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -438,7 +438,6 @@ export default function Home() {
                       dataKey="x" 
                       type="number"
                       scale="linear"
-                      reversed={true}
                       domain={(() => {
                         const allTimePoints = getAllTimePoints(selectedRange, serverNow);
                         const startTime = allTimePoints[0]?.getTime();
@@ -544,7 +543,6 @@ export default function Home() {
                       dataKey="x" 
                       type="number"
                       scale="linear"
-                      reversed={true}
                       domain={(() => {
                         const allTimePoints = getAllTimePoints(selectedRange, serverNow);
                         const startTime = allTimePoints[0]?.getTime();
